@@ -1,0 +1,253 @@
+{
+  "id": "scarW1",
+  "name": "SCAR W1 - Event Ingestion",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scar/ingest",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "06e48090-8f54-59ea-98dc-19ec69586c49",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ],
+      "webhookId": "34538631-821b-58bb-bc75-a85bdcfac321"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f0704439-043a-41fb-b1ff-db99c6cdef8d",
+              "name": "backend_url",
+              "value": "http://backend:8000",
+              "type": "string"
+            },
+            {
+              "id": "e4cfcb79-de85-4c99-8d24-820949c441e2",
+              "name": "backend_key",
+              "value": "CHANGE_ME_BACKEND_KEY",
+              "type": "string"
+            },
+            {
+              "id": "33e262af-afbb-457a-8b4c-19ebcdf7e3c3",
+              "name": "ai_url",
+              "value": "http://ai-service:8001",
+              "type": "string"
+            },
+            {
+              "id": "8f9ae8f0-a8fe-4e6f-a4e5-448ae4261cf9",
+              "name": "ai_key",
+              "value": "CHANGE_ME_AI_KEY",
+              "type": "string"
+            },
+            {
+              "id": "d88b27d0-3677-4b75-9b7e-1d2a43e231d1",
+              "name": "analysis_webhook_url",
+              "value": "http://n8n:5678/webhook/scar/analyze",
+              "type": "string"
+            },
+            {
+              "id": "ed564e32-a974-486c-a094-2bef2aab33c2",
+              "name": "alert_webhook_url",
+              "value": "http://n8n:5678/webhook/scar/alert",
+              "type": "string"
+            },
+            {
+              "id": "fc07dcb5-688a-4567-afce-d1bbe2d2f8cf",
+              "name": "alert_threshold",
+              "value": 70,
+              "type": "number"
+            },
+            {
+              "id": "e2383e6a-fc28-48cb-bf3e-e6a2c90f4702",
+              "name": "alert_cooldown_s",
+              "value": 600,
+              "type": "number"
+            },
+            {
+              "id": "5c3bcbf3-6188-40f1-9bf5-f4f5c6628047",
+              "name": "telegram_chat_id",
+              "value": "CHANGE_ME_CHAT_ID",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "8d9cd586-a950-587c-841d-713dcb25acc7",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Accepts {source:'wazuh'|'zeek'|'drone', payload:{...}, mission_id?} and outputs the standard SCAR event.\nconst b = $('Webhook').first().json.body || {};\nconst now = new Date().toISOString();\nconst p = b.payload || b;\nlet ev;\nif (b.source === 'wazuh') {\n  ev = { source: 'wazuh', event_type: 'wazuh_alert', timestamp: p.timestamp || now, raw_payload: p };\n} else if (b.source === 'zeek') {\n  ev = { source: 'zeek', event_type: p._path === 'notice' ? 'notice' : (p._path || 'zeek_log'),\n         timestamp: p.ts ? new Date(p.ts * 1000).toISOString() : now, raw_payload: p };\n} else if (b.source === 'drone') {\n  ev = { source: 'drone', event_type: p.event_type || 'wifi_beacon', timestamp: p.timestamp || now,\n         bssid: p.bssid || null, ssid: p.ssid || null, rssi: p.rssi ?? null, channel: p.channel ?? null,\n         encryption: p.encryption || null, lat: p.lat ?? null, lon: p.lon ?? null, altitude: p.altitude ?? null,\n         raw_payload: p.raw || {} };\n} else {\n  throw new Error('unknown source: ' + b.source);\n}\nev.mission_id = p.mission_id || b.mission_id || null;\nif (b.event_id) ev.event_id = b.event_id;      // otherwise the backend generates it\nev.status = 'pending';\nreturn [{ json: ev }];"
+      },
+      "id": "3f42a7e3-8a63-5a57-ad61-7ef7b6f1f761",
+      "name": "Normalize event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.backend_url }}/events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $('Config').first().json.backend_key }}"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}"
+      },
+      "id": "994e56e5-03a9-55ec-89d6-df2a5be9bb6b",
+      "name": "Create event (backend)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        300
+      ],
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.analysis_webhook_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $('Config').first().json.backend_key }}"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { event_id: $json.event_id } }}"
+      },
+      "id": "84296814-e82f-5e63-a020-cc00bd0e7916",
+      "name": "Trigger analysis (W2)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.backend_url }}/workflow-runs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $('Config').first().json.backend_key }}"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { workflow_name: 'W1_ingestion', event_id: null, n8n_execution_id: $execution.id, status: 'failed', attempts: 1, error_message: ($json.error && $json.error.message) || 'create event failed' } }}"
+      },
+      "id": "eadc6ed1-7672-5b25-87e8-21d6605d9caa",
+      "name": "Log failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        500
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Normalize event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize event": {
+      "main": [
+        [
+          {
+            "node": "Create event (backend)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create event (backend)": {
+      "main": [
+        [
+          {
+            "node": "Trigger analysis (W2)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

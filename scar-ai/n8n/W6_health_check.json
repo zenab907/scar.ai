@@ -1,0 +1,247 @@
+{
+  "id": "scarW6",
+  "name": "SCAR W6 - Health Check",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "a26d81c8-0ca6-5c34-af0c-aff4aced98dc",
+      "name": "Every 5 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "78efb50a-7fe1-4ad0-9438-3796cdd3fc5c",
+              "name": "backend_url",
+              "value": "http://backend:8000",
+              "type": "string"
+            },
+            {
+              "id": "18f5750f-9450-4b29-a7c7-25197594038a",
+              "name": "backend_key",
+              "value": "CHANGE_ME_BACKEND_KEY",
+              "type": "string"
+            },
+            {
+              "id": "f8bf36d3-a516-47b4-9458-c58e6d9b2a77",
+              "name": "ai_url",
+              "value": "http://ai-service:8001",
+              "type": "string"
+            },
+            {
+              "id": "5738a091-148b-4e24-a683-bd91adbe6606",
+              "name": "ai_key",
+              "value": "CHANGE_ME_AI_KEY",
+              "type": "string"
+            },
+            {
+              "id": "69338f7e-2238-451a-b596-b18e28587920",
+              "name": "analysis_webhook_url",
+              "value": "http://n8n:5678/webhook/scar/analyze",
+              "type": "string"
+            },
+            {
+              "id": "0b659078-1606-4a4a-a1dd-fe4852f1d3db",
+              "name": "alert_webhook_url",
+              "value": "http://n8n:5678/webhook/scar/alert",
+              "type": "string"
+            },
+            {
+              "id": "564fce58-57f8-4e6a-8037-4e7dba6bef52",
+              "name": "alert_threshold",
+              "value": 70,
+              "type": "number"
+            },
+            {
+              "id": "ac1f730a-8f89-4bba-ba12-b2c2cd07ec0c",
+              "name": "alert_cooldown_s",
+              "value": 600,
+              "type": "number"
+            },
+            {
+              "id": "739bd94a-4951-4f8a-a46e-589c202b8e27",
+              "name": "telegram_chat_id",
+              "value": "CHANGE_ME_CHAT_ID",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "2d81a7df-ab37-5e73-ba51-29a54cd16a19",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.backend_url }}/health",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $('Config').first().json.backend_key }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "35b57b38-ac97-5e63-bc70-0daa2892799c",
+      "name": "Check backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.ai_url }}/health",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $('Config').first().json.ai_key }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d5977e44-a6c8-530e-9a7d-8c5b8d0ae980",
+      "name": "Check AI service",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const down = [];\nconst b = $('Check backend').first().json, a = $('Check AI service').first().json;\nif (!b || b.error) down.push('backend');\nif (!a || a.error || a.status !== 'ok') down.push('ai-service');\nconst sd = $getWorkflowStaticData('global');\nconst state = down.sort().join(',');\nif (sd.last === state) return [];                       // nothing changed -> stay quiet\nconst first = sd.last === undefined;\nsd.last = state;\nif (first && !state) return [];                          // first run and healthy -> no message\nconst text = state ? `SCAR health: DOWN -> ${state}` : 'SCAR health: all services recovered';\nreturn [{ json: { text } }];"
+      },
+      "id": "c8e08409-9e0a-5163-a792-d9780b9b765d",
+      "name": "Evaluate (alert on state change only)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Config').first().json.telegram_chat_id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "4d76d422-130a-5750-9b4d-3204040a0cd4",
+      "name": "Send Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1560,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_ME",
+          "name": "SCAR Telegram Bot"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Every 5 min": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Check backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check backend": {
+      "main": [
+        [
+          {
+            "node": "Check AI service",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check AI service": {
+      "main": [
+        [
+          {
+            "node": "Evaluate (alert on state change only)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate (alert on state change only)": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

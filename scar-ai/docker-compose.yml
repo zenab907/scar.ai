@@ -1,0 +1,21 @@
+# Local dev stack:  docker compose up --build
+# Real backend is the Backend team's; `mock-backend` stands in for it until it is ready.
+services:
+  postgres:
+    image: postgres:16
+    environment: { POSTGRES_USER: scar, POSTGRES_DB: scar, POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}" }
+    volumes: ["./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro", "pg:/var/lib/postgresql/data"]
+  ai-service:
+    build: ./ai_service
+    environment: { AI_API_KEY: "${AI_API_KEY}", ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}", SENTINEL_MODEL: "${SENTINEL_MODEL:-claude-sonnet-5-5}" }
+    ports: ["8001:8001"]
+  mock-backend:
+    build: ./ai_service
+    command: uvicorn mock_backend:app --host 0.0.0.0 --port 8000
+    ports: ["8000:8000"]
+  n8n:
+    image: n8nio/n8n:latest
+    environment: { N8N_ENCRYPTION_KEY: "${N8N_ENCRYPTION_KEY}", GENERIC_TIMEZONE: Africa/Cairo }
+    ports: ["5678:5678"]
+    volumes: ["n8n:/home/node/.n8n"]
+volumes: { pg: {}, n8n: {} }

@@ -1,0 +1,13 @@
+{
+  "source": "wazuh",
+  "payload": {
+    "timestamp": "2026-11-22T10:05:00Z",
+    "rule": {
+      "level": 12,
+      "description": "Multiple authentication failures"
+    },
+    "agent": {
+      "name": "srv-01"
+    }
+  }
+}

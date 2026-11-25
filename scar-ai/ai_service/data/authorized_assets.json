@@ -1,0 +1,26 @@
+[
+  {
+    "bssid": "AA:BB:CC:00:00:01",
+    "ssid": "Campus-WiFi"
+  },
+  {
+    "bssid": "AA:BB:CC:00:00:02",
+    "ssid": "Campus-WiFi"
+  },
+  {
+    "bssid": "AA:BB:CC:00:00:03",
+    "ssid": "Campus-WiFi"
+  },
+  {
+    "bssid": "AA:BB:CC:00:00:04",
+    "ssid": "Admin-Secure"
+  },
+  {
+    "bssid": "AA:BB:CC:00:00:05",
+    "ssid": "Campus-WiFi"
+  },
+  {
+    "bssid": "AA:BB:CC:00:00:06",
+    "ssid": "Campus-WiFi"
+  }
+]

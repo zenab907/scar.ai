@@ -1,0 +1,232 @@
+{
+  "id": "scarW3",
+  "name": "SCAR W3 - Pending Sweeper (polling fallback)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "72844d2b-dbdf-5039-99c1-db1652721e37",
+      "name": "Every 30s",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2a5831da-d4dc-4389-b62c-1fc5f691992a",
+              "name": "backend_url",
+              "value": "http://backend:8000",
+              "type": "string"
+            },
+            {
+              "id": "43f94088-a094-4740-be1f-d7aff218c6a1",
+              "name": "backend_key",
+              "value": "CHANGE_ME_BACKEND_KEY",
+              "type": "string"
+            },
+            {
+              "id": "f7312b65-5979-4946-bac9-0e4f7082ff5b",
+              "name": "ai_url",
+              "value": "http://ai-service:8001",
+              "type": "string"
+            },
+            {
+              "id": "da7c13e0-0b4f-46d6-bc80-d8c8e5fe133c",
+              "name": "ai_key",
+              "value": "CHANGE_ME_AI_KEY",
+              "type": "string"
+            },
+            {
+              "id": "e6c964e3-7450-480e-988c-99870315269f",
+              "name": "analysis_webhook_url",
+              "value": "http://n8n:5678/webhook/scar/analyze",
+              "type": "string"
+            },
+            {
+              "id": "eb93d5ad-08e3-4017-880b-f80baa88819b",
+              "name": "alert_webhook_url",
+              "value": "http://n8n:5678/webhook/scar/alert",
+              "type": "string"
+            },
+            {
+              "id": "03236469-2a29-4625-82cb-7fe34e91eba0",
+              "name": "alert_threshold",
+              "value": 70,
+              "type": "number"
+            },
+            {
+              "id": "149ec083-e3c5-4f92-91ab-d55fbd8be0e1",
+              "name": "alert_cooldown_s",
+              "value": 600,
+              "type": "number"
+            },
+            {
+              "id": "613adba5-50ae-4e7b-882e-afc4f3c2e4df",
+              "name": "telegram_chat_id",
+              "value": "CHANGE_ME_CHAT_ID",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "ba894713-6da0-5e5d-a38a-09d9e707f7ca",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.backend_url }}/events/requeue-stuck",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $('Config').first().json.backend_key }}"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { older_than_seconds: 300 } }}"
+      },
+      "id": "e90e1eb6-aaae-5336-85f3-c3b6f2d85740",
+      "name": "Requeue stuck events",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        300
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.backend_url }}/events?status=pending&limit=50",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $('Config').first().json.backend_key }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "80d9fc19-9f9f-52df-8906-bfa99e80568e",
+      "name": "Get pending events",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        300
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.analysis_webhook_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $('Config').first().json.backend_key }}"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { event_id: $json.event_id } }}"
+      },
+      "id": "167db190-79c1-5dec-a4fe-8c91db7d8f4f",
+      "name": "Trigger analysis (W2)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Every 30s": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Requeue stuck events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Requeue stuck events": {
+      "main": [
+        [
+          {
+            "node": "Get pending events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get pending events": {
+      "main": [
+        [
+          {
+            "node": "Trigger analysis (W2)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

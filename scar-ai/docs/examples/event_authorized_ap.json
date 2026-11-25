@@ -1,0 +1,18 @@
+{
+  "event_id": "d23f0824-128b-4f33-8c5c-7fd0a6a3a450",
+  "mission_id": "mission-demo-001",
+  "source": "drone",
+  "event_type": "wifi_beacon",
+  "timestamp": "2026-11-22T10:00:02+00:00",
+  "bssid": "AA:BB:CC:00:00:01",
+  "ssid": "Campus-WiFi",
+  "rssi": -85,
+  "channel": 1,
+  "encryption": "WPA2",
+  "lat": 27.18011308123756,
+  "lon": 31.18,
+  "altitude": 30.0,
+  "raw_payload": {
+    "sim_ap": "lib-1"
+  }
+}

@@ -1,0 +1,329 @@
+{
+  "id": "scarW4",
+  "name": "SCAR W4 - Alerting",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scar/alert",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "7d553d4c-8dc3-54f5-868c-9420cd7c4d57",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ],
+      "webhookId": "51966962-a679-50dd-97ef-ce4ec73c9ea8"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4dc6c67b-bf2e-4f0a-9ea4-1d6f23455fa4",
+              "name": "backend_url",
+              "value": "http://backend:8000",
+              "type": "string"
+            },
+            {
+              "id": "d09dfccc-6af3-4631-bb33-e2fbf3ab3a18",
+              "name": "backend_key",
+              "value": "CHANGE_ME_BACKEND_KEY",
+              "type": "string"
+            },
+            {
+              "id": "6f55b9e1-bd25-4d06-b17d-6433c23d4db2",
+              "name": "ai_url",
+              "value": "http://ai-service:8001",
+              "type": "string"
+            },
+            {
+              "id": "ed1c68d9-ac22-4bcb-ada4-49a844d495fa",
+              "name": "ai_key",
+              "value": "CHANGE_ME_AI_KEY",
+              "type": "string"
+            },
+            {
+              "id": "756de3c4-389b-45c5-aec2-e484b6e701a6",
+              "name": "analysis_webhook_url",
+              "value": "http://n8n:5678/webhook/scar/analyze",
+              "type": "string"
+            },
+            {
+              "id": "d35c5c20-c7d4-43cc-a83a-c22d2663749c",
+              "name": "alert_webhook_url",
+              "value": "http://n8n:5678/webhook/scar/alert",
+              "type": "string"
+            },
+            {
+              "id": "b9fe7608-3543-4430-aa07-527b105b3b26",
+              "name": "alert_threshold",
+              "value": 70,
+              "type": "number"
+            },
+            {
+              "id": "afd5cdfb-4986-4621-adbb-9bee003a1150",
+              "name": "alert_cooldown_s",
+              "value": 600,
+              "type": "number"
+            },
+            {
+              "id": "611f1a0e-ca14-459f-85fc-cc4fbdbcf413",
+              "name": "telegram_chat_id",
+              "value": "CHANGE_ME_CHAT_ID",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "3f7f8c48-0116-51e6-95bb-2e20e97b449e",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One alert per (mission, source device, category) per cooldown window: the AI service decides (atomic).\nconst a = $('Webhook').first().json.body;\nconst icon = { critical: '[CRITICAL]', high: '[HIGH]', medium: '[MEDIUM]', low: '[LOW]' }[a.severity] || '[ALERT]';\n// plain text on purpose: SSIDs are attacker-controlled, never render them as HTML/Markdown\nconst text = [\n  `SCAR ALERT ${icon} score ${a.risk_score}/100`,\n  `Category: ${a.category}`,\n  a.bssid ? `AP: ${a.ssid || '(hidden)'} / ${a.bssid}` : null,\n  a.mission_id ? `Mission: ${a.mission_id}` : null,\n  `Why: ${a.explanation}`,\n  `Action: ${a.recommended_action}`,\n  `Event: ${a.event_id}`\n].filter(Boolean).join('\\n').slice(0, 3500);\nconst key = [a.mission_id || '-', a.bssid || a.event_id, a.category].join('|');\nreturn [{ json: { text, alert: a, dedupe_key: key } }];"
+      },
+      "id": "37e753d8-bd34-55d1-aa21-03783406d7a9",
+      "name": "Format message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.ai_url }}/dedupe",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $('Config').first().json.ai_key }}"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { key: $json.dedupe_key, cooldown_seconds: $('Config').first().json.alert_cooldown_s } }}"
+      },
+      "id": "510ebf48-e665-5fa2-ac0c-336824db2824",
+      "name": "Check duplicate (AI service)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "5aacb67e-ab3c-4954-9328-8a9cc48bad9b",
+              "leftValue": "={{ $json.send !== false }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3c4e2d14-a87e-5355-8272-e42e030833c2",
+      "name": "Is new alert?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Config').first().json.telegram_chat_id }}",
+        "text": "={{ $('Format message').first().json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "23112682-474a-5405-97de-051ca5d59a8e",
+      "name": "Send Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1560,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_ME",
+          "name": "SCAR Telegram Bot"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.backend_url }}/alerts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $('Config').first().json.backend_key }}"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { event_id: $('Format message').first().json.alert.event_id, severity: $('Format message').first().json.alert.severity, risk_score: $('Format message').first().json.alert.risk_score, category: $('Format message').first().json.alert.category, message: $('Format message').first().json.text, channel: 'telegram', delivery: 'sent' } }}"
+      },
+      "id": "f2ea5dde-ec93-5174-bb36-467bdbef23ea",
+      "name": "Save alert (sent)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.backend_url }}/alerts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $('Config').first().json.backend_key }}"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { event_id: $('Format message').first().json.alert.event_id, severity: $('Format message').first().json.alert.severity, risk_score: $('Format message').first().json.alert.risk_score, category: $('Format message').first().json.alert.category, message: $('Format message').first().json.text, channel: 'telegram', delivery: 'failed' } }}"
+      },
+      "id": "fca04e9f-8d7a-51be-be7d-d4b5161f403b",
+      "name": "Save alert (failed)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2080,
+        520
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Format message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format message": {
+      "main": [
+        [
+          {
+            "node": "Check duplicate (AI service)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check duplicate (AI service)": {
+      "main": [
+        [
+          {
+            "node": "Is new alert?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is new alert?": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Telegram": {
+      "main": [
+        [
+          {
+            "node": "Save alert (sent)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save alert (failed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

@@ -1,0 +1,385 @@
+{
+  "id": "scarW5",
+  "name": "SCAR W5 - Mission Report",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scar/mission-report",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "4b6c3f06-94d9-56d6-8b4a-a7747e5e4b9b",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ],
+      "webhookId": "60a148a4-544c-5e8f-8b5b-4421f533abd1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "86263b3d-cf52-426e-9727-5a4778d50008",
+              "name": "backend_url",
+              "value": "http://backend:8000",
+              "type": "string"
+            },
+            {
+              "id": "243708b5-2571-4792-82c3-012ceeb92b3c",
+              "name": "backend_key",
+              "value": "CHANGE_ME_BACKEND_KEY",
+              "type": "string"
+            },
+            {
+              "id": "2df780c9-60f0-48ea-b63e-9ffe7a141cd1",
+              "name": "ai_url",
+              "value": "http://ai-service:8001",
+              "type": "string"
+            },
+            {
+              "id": "147b5153-a772-463c-b1a7-c7be7869a00d",
+              "name": "ai_key",
+              "value": "CHANGE_ME_AI_KEY",
+              "type": "string"
+            },
+            {
+              "id": "ad24a23f-d1ef-4075-946f-1faeaec8ebaa",
+              "name": "analysis_webhook_url",
+              "value": "http://n8n:5678/webhook/scar/analyze",
+              "type": "string"
+            },
+            {
+              "id": "09df6c40-9a95-490e-ae6f-d91905244aac",
+              "name": "alert_webhook_url",
+              "value": "http://n8n:5678/webhook/scar/alert",
+              "type": "string"
+            },
+            {
+              "id": "abfb4ad1-b509-41a0-9495-cabba691cdea",
+              "name": "alert_threshold",
+              "value": 70,
+              "type": "number"
+            },
+            {
+              "id": "4ccc9de8-a9ec-4e19-9ea5-29f9f1a96157",
+              "name": "alert_cooldown_s",
+              "value": 600,
+              "type": "number"
+            },
+            {
+              "id": "d1f7ac8e-10d1-44e5-a827-8baff7429129",
+              "name": "telegram_chat_id",
+              "value": "CHANGE_ME_CHAT_ID",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "89f14ec5-6045-5ad5-ba34-9cf2e4cc7a9c",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.backend_url }}/missions/{{ $('Webhook').first().json.body.mission_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $('Config').first().json.backend_key }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0fbfccab-03f1-5883-8c78-329e0f3febce",
+      "name": "Get mission",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.backend_url }}/missions/{{ $('Webhook').first().json.body.mission_id }}/events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $('Config').first().json.backend_key }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4ee64843-c917-596a-9de1-b66ad2b700d8",
+      "name": "Get events",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "data",
+        "options": {}
+      },
+      "id": "e11bf6bb-ac12-51f7-9fc9-d0bf249b2dab",
+      "name": "Pack events",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.backend_url }}/missions/{{ $('Webhook').first().json.body.mission_id }}/analysis-results?agent=risk",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $('Config').first().json.backend_key }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9fa1d49e-d2ba-57c8-b2bf-21c6092cbd04",
+      "name": "Get risk results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "data",
+        "options": {}
+      },
+      "id": "5be477b4-af93-5b0d-a368-ab0ce497eee4",
+      "name": "Pack results",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1820,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.ai_url }}/report",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $('Config').first().json.ai_key }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { mission: $('Get mission').first().json, events: $('Pack events').first().json.data, results: $('Pack results').first().json.data } }}"
+      },
+      "id": "440ae70f-758e-55ce-9e8f-e53bb28ee2ae",
+      "name": "Build report (AI service)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2080,
+        300
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.backend_url }}/reports",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $('Config').first().json.backend_key }}"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { mission_id: $('Webhook').first().json.body.mission_id, format: 'markdown', content: $json.markdown } }}"
+      },
+      "id": "94589653-d2c3-529b-a9db-e581f9c1d273",
+      "name": "Save report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2340,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.backend_url }}/workflow-runs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $('Config').first().json.backend_key }}"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { workflow_name: 'W5_report', event_id: null, n8n_execution_id: $execution.id, status: 'failed', attempts: 1, error_message: 'report build failed', mission_id: $('Webhook').first().json.body.mission_id } }}"
+      },
+      "id": "2b0d674d-df36-554a-898e-ebd5cee264ae",
+      "name": "Log failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2600,
+        520
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Get mission",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get mission": {
+      "main": [
+        [
+          {
+            "node": "Get events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get events": {
+      "main": [
+        [
+          {
+            "node": "Pack events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pack events": {
+      "main": [
+        [
+          {
+            "node": "Get risk results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get risk results": {
+      "main": [
+        [
+          {
+            "node": "Pack results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pack results": {
+      "main": [
+        [
+          {
+            "node": "Build report (AI service)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build report (AI service)": {
+      "main": [
+        [
+          {
+            "node": "Save report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
